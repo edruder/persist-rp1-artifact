@@ -1,0 +1,19 @@
+{
+  "name": "persist-rp1-artifact",
+  "description": "Publish rp1 artifacts (investigation reports, design docs, audits) as idempotent PR comments without committing the files to the repo.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Ed Ruder",
+    "email": "ed@ruders.org"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/edruder/persist-rp1-artifact",
+  "repository": "https://github.com/edruder/persist-rp1-artifact",
+  "keywords": [
+    "rp1",
+    "pr-comment",
+    "artifact",
+    "github",
+    "investigation-report"
+  ]
+}
