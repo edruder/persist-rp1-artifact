@@ -24,6 +24,16 @@ The skill projects an rp1 artifact into a structured PR comment:
 
 Live example: **[PR #564 comment](https://github.com/anvilco/pdf-service/pull/564#issuecomment-4493371726)** — a 397-line investigation report projected to a 35.9 KB comment, with the exec summary visible at the top and the full report one click away.
 
+## Is this the right tool?
+
+This skill is purpose-built for **rp1 artifacts** — markdown files under `.rp1/work/` with rp1's frontmatter format (`producer`, `artifact`, `rp1_doc_id`, etc.). If your situation is different, there are simpler options:
+
+- **Posting CI output (test reports, coverage, lint findings) as a sticky PR comment from a workflow?** Use [`marocchino/sticky-pull-request-comment`](https://github.com/marocchino/sticky-pull-request-comment), [`mshick/add-pr-comment`](https://github.com/mshick/add-pr-comment), or one of the other GitHub Actions in that family. They run in CI, are well-maintained, and don't require rp1.
+- **Posting a generic markdown file from your laptop?** A one-liner does it: `gh api -X POST repos/<owner>/<repo>/issues/<pr>/comments -F body=@file.md`. No skill needed.
+- **Posting inline review findings (per-line code suggestions on a PR)?** Use rp1's `/pr-review` — it already composes with the `pr-comment-poster` and `pr-comment-deduplicator` agents for that workflow.
+
+This skill earns its keep specifically when (a) you're using rp1, (b) an rp1 agent has produced an artifact with valid frontmatter, and (c) you want the artifact to live in the PR conversation instead of the repo.
+
 ## Prerequisites
 
 - [**`gh` CLI**](https://cli.github.com/) installed and authenticated (`gh auth status` must succeed)
@@ -141,6 +151,12 @@ The skill is intentionally self-contained — every file related to it (procedur
 - **Idempotency by UUID.** The `rp1_doc_id` marker is a UUID; collisions across artifacts are negligible. Re-publishing is just PATCH.
 - **Fail loud, never destructive.** Missing fields, multiple matches, oversized bodies → exit non-zero with a clear message. Local artifact file is never modified.
 - **Fixture pairs as the contract.** `examples/*-input.md` ↔ `examples/*-output.md` lock in the projection format. Any change to the procedure must keep these byte-equal.
+
+## Prior art
+
+The "idempotent comment via HTML-comment marker" trick — the load-bearing primitive on the skill's `<!-- rp1-artifact: <uuid> -->` line — is borrowed from the GitHub Actions sticky-comment ecosystem. [`marocchino/sticky-pull-request-comment`](https://github.com/marocchino/sticky-pull-request-comment) popularized the pattern (a configurable header string that the action greps for to decide whether to POST or PATCH), and most other sticky-comment Actions ([`mshick/add-pr-comment`](https://github.com/mshick/add-pr-comment), [`GrantBirki/comment-actions`](https://github.com/marketplace/actions/comment-actions), and others) use variants of the same approach.
+
+What's novel here is the rp1-specific projection: frontmatter parsing, deterministic title derivation, Executive-Summary extraction with fallback, the `<details>`-collapse layout, refuse-without-`rp1_doc_id` policy, and the developer-machine slash-command workflow. The dedup mechanism itself is well-trodden ground.
 
 ## v2 ideas (not in v1)
 
