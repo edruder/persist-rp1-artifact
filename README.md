@@ -53,7 +53,20 @@ Claude Code installs plugins from *marketplaces* — repos containing a `.claude
 /plugin install persist-rp1-artifact
 ```
 
-The first command registers the repo as a known marketplace. The second installs the `persist-rp1-artifact` plugin from it. After installing, the `/persist-rp1-artifact` slash-command becomes available (may require a session restart).
+The first command registers the repo as a known marketplace, keyed under the manifest's `name` (`persist-rp1-artifact`). The second installs the plugin from it. After installing, the `/persist-rp1-artifact` slash-command becomes available (may require a session restart).
+
+> **Note on naming.** Only the `add` command takes the GitHub path; subsequent `/plugin marketplace` operations (`update`, `remove`, etc.) take the **marketplace name** — `persist-rp1-artifact`, not `edruder/persist-rp1-artifact`. See the [Updating](#updating) section below.
+
+### Updating
+
+When a new plugin version ships, refresh the cached marketplace and reinstall:
+
+```
+/plugin marketplace update persist-rp1-artifact
+/plugin install persist-rp1-artifact
+```
+
+`update` pulls the latest `main` of this repo into Claude Code's marketplace cache. `install` then re-registers the plugin from the refreshed manifest. Without the `update` step, Claude Code reads its stale local cache and won't see new versions.
 
 ### Local development install
 
