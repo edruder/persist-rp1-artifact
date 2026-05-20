@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "persist-rp1-artifact",
+  "description": "Single-plugin marketplace for the persist-rp1-artifact Claude Code skill.",
+  "owner": {
+    "name": "Ed Ruder",
+    "email": "ed@ruders.org"
+  },
+  "plugins": [
+    {
+      "name": "persist-rp1-artifact",
+      "description": "Publish rp1 artifacts (investigation reports, design docs, audits) as idempotent PR comments without committing the files to the repo.",
+      "author": {
+        "name": "Ed Ruder",
+        "email": "ed@ruders.org"
+      },
+      "category": "development",
+      "source": ".",
+      "homepage": "https://github.com/edruder/persist-rp1-artifact"
+    }
+  ]
+}

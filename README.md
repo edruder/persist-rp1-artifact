@@ -46,9 +46,14 @@ This skill earns its keep specifically when (a) you're using rp1, (b) an rp1 age
 
 ### As a Claude Code plugin (recommended)
 
+Claude Code installs plugins from *marketplaces* — repos containing a `.claude-plugin/marketplace.json` manifest. This repo is its own single-plugin marketplace, so installation is a two-step command:
+
 ```
-/plugin install edruder/persist-rp1-artifact
+/plugin marketplace add edruder/persist-rp1-artifact
+/plugin install persist-rp1-artifact
 ```
+
+The first command registers the repo as a known marketplace. The second installs the `persist-rp1-artifact` plugin from it. After installing, the `/persist-rp1-artifact` slash-command becomes available (may require a session restart).
 
 ### Local development install
 

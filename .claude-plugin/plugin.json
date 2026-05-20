@@ -1,7 +1,7 @@
 {
   "name": "persist-rp1-artifact",
   "description": "Publish rp1 artifacts (investigation reports, design docs, audits) as idempotent PR comments without committing the files to the repo.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "Ed Ruder",
     "email": "ed@ruders.org"
