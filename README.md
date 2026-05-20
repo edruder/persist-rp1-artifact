@@ -15,14 +15,16 @@ Two bad alternatives the team had been living with:
 
 ## What it looks like
 
+![Rendered PR comment example](screenshots/comment-demo.png)
+
 The skill projects an rp1 artifact into a structured PR comment:
 
 - A header table with frontmatter fields (producer, artifact type, doc ID, source path)
 - The artifact's Executive Summary section, verbatim, at the top
-- The rest of the artifact tucked inside a `<details>` collapsible block
+- The rest of the artifact tucked inside a `<details>` collapsible block (shown expanded in the screenshot; collapsed by default in real comments)
 - A hidden HTML marker (`<!-- rp1-artifact: <uuid> -->`) on line 1 for idempotent re-runs
 
-Live example: **[PR #564 comment](https://github.com/anvilco/pdf-service/pull/564#issuecomment-4493371726)** — a 397-line investigation report projected to a 35.9 KB comment, with the exec summary visible at the top and the full report one click away.
+The screenshot above is generated from a **fully synthetic artifact** about a fictional Redis-to-Postgres migration — no real-world content, just the structural format you can expect.
 
 ## Is this the right tool?
 
