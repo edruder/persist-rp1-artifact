@@ -11,23 +11,23 @@ Publish an rp1 artifact (frontmatter-bearing markdown under `.rp1/work/`) as a P
 
 > ### ⚠️ Always `--dry-run` first on a real PR
 >
-> The skill writes to a real GitHub PR comment by default. Before invoking against a PR you care about (especially one with active reviewers), always do a dry-run first:
+> The skill writes to a real GitHub PR/issue comment by default. Before invoking against a target you care about (especially one with active reviewers), always do a dry-run first:
 >
 > ```
-> /persist-rp1-artifact <path> [pr-number] --dry-run
+> /persist-rp1-artifact <path> [target] --dry-run
 > ```
 >
 > Dry-run runs every step of the procedure except the GitHub write, prints the projected comment body to stdout and a diagnostic block to stderr (telling you whether the next run would `POST` or `PATCH`), and exits 0. Once the projection looks right, re-run without `--dry-run` to actually post. This is the v1 safety net while the projection logic is stabilizing.
 
 ## When to invoke
 
-- User explicitly runs `/persist-rp1-artifact <path> [pr-number]`.
+- User explicitly runs `/persist-rp1-artifact <path> [target]`.
 - User has just produced an rp1 artifact and asks how to share it on a PR without committing it.
 - User asks to "summarize an rp1 investigation report into a PR comment."
 
 ## When NOT to invoke
 
-- The "artifact" lacks rp1 frontmatter (no `rp1_doc_id`). Suggest the user regenerate via the producing rp1 skill, or that they post manually.
+- The file is not an rp1 work artifact at all (not under `.rp1/work/` and unrelated to rp1). This skill publishes rp1 artifacts; frontmatter is optional, but the file should be an rp1 work product.
 - The user wants to keep the artifact in the repo. This skill is for the *don't commit it* case.
 
 ## Inputs
@@ -35,9 +35,9 @@ Publish an rp1 artifact (frontmatter-bearing markdown under `.rp1/work/`) as a P
 | Arg | Required | Default |
 |---|---|---|
 | `<path>` | yes | — |
-| `[pr-number]` | no | current branch's open PR (`gh pr view --json number -q .number`) |
-| `--dry-run` | no | false (real post). First-time runs on real PRs should pass `--dry-run` first. |
-| `--force` | no | false. See `references/edge-cases.md` for what `--force` loosens. |
+| `[target]` | no | current branch's open PR (`gh pr view --json number -q .number`). May be a PR or issue **number**, or a full GitHub PR/issue **URL**. |
+| `--dry-run` | no | false (real post). First-time runs on real targets should pass `--dry-run` first. |
+| `--force` | no | false. See `references/edge-cases.md`. |
 
 ## References (read these — they encode the spec)
 
@@ -47,7 +47,13 @@ Publish an rp1 artifact (frontmatter-bearing markdown under `.rp1/work/`) as a P
 
 ## Fixtures (the contract)
 
-`examples/investigation-report-input.md` ↔ `examples/investigation-report-output.md` is the primary fixture pair. After any procedural change to this skill, manually walk through the input and verify the output matches byte-for-byte.
+The `examples/*-input.md` ↔ `examples/*-output.md` pairs are byte-exact golden tests for
+`scripts/project.py`, run by `tests/test_project.py`. After any change to the projection:
+
+    python3 -m unittest discover -s skills/persist-rp1-artifact/tests
+
+A failing golden test means the projection drifted from the contract — fix the script, not
+the fixtures.
 
 ## Procedure
 
@@ -55,7 +61,9 @@ This procedure is executed by the main agent using `Read`, `Bash` (for `gh`), an
 
 ### Step 1: Resolve inputs
 
-**Arguments parsing.** The skill is invoked as `/persist-rp1-artifact <path> [pr-number] [--dry-run] [--force]`. Parse positional args first, then flags. Treat anything starting with `--` as a flag.
+**Skill directory.** Set `SKILL_DIR` to this skill's directory (the folder containing this `SKILL.md`). The script-calling snippets in Steps 1–2 reference `$SKILL_DIR` and `$SKILL_DIR/scripts`, so compute it once here.
+
+**Arguments parsing.** The skill is invoked as `/persist-rp1-artifact <path> [target] [--dry-run] [--force]`. Parse positional args first, then flags. Treat anything starting with `--` as a flag. The second positional, if present, becomes `target`.
 
 **Pre-flight checks** (in order; fail fast):
 
@@ -74,228 +82,109 @@ esac
 
 This is a warning only — continue.
 
-**Repo-relative path.** Compute for use in the projection's "Source path" row:
-
-```bash
-repo_root="$(git -C "$(dirname "$path")" rev-parse --show-toplevel)"
-relative_path="${path#$repo_root/}"
-```
-
-If `git rev-parse` fails (not in a repo), use `$path` as-is and warn.
-
-**PR resolution.** If `pr-number` was passed positionally, use it. Otherwise:
-
-```bash
-pr_number="$(gh pr view --json number --jq .number 2>/dev/null)"
-```
-
-If empty, exit with: `No open PR for current branch. Push and open a PR, or pass an explicit PR number.`
-
-**PR state check.**
-
-```bash
-pr_state="$(gh pr view "$pr_number" --json state --jq .state)"
-```
-
-If `pr_state` is `CLOSED` or `MERGED`:
-
-- Without `--force`: exit with `PR #$pr_number is $pr_state. Pass --force to comment anyway.`
-- With `--force`: continue, no warning.
-
-**Repo identification.** For subsequent `gh api repos/...` calls, capture `owner` and `repo`:
+**Repo identification.** Capture the current repo for bare-number targets and for API calls:
 
 ```bash
 repo_full="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"  # "owner/repo"
 ```
 
-### Step 2: Load + parse the artifact
-
-**Split frontmatter from body.** Use Python 3 (always available on macOS/Linux dev machines):
+**Target resolution.** If no `target` arg was passed, default to the current branch's open PR:
 
 ```bash
-python3 - <<'PY' "$path"
-import sys, re
-with open(sys.argv[1]) as f:
-    txt = f.read()
-m = re.match(r'^---\n(.*?)\n---\n(.*)$', txt, re.DOTALL)
-if not m:
-    sys.exit("ERROR: artifact has no YAML frontmatter block.")
-print("===FRONTMATTER===")
-print(m.group(1))
-print("===BODY===")
-print(m.group(2), end="")
+if [ -z "$target" ]; then
+  number="$(gh pr view --json number --jq .number 2>/dev/null)"
+  [ -z "$number" ] && { echo "No open PR for current branch. Push and open a PR, or pass an explicit PR/issue number or URL." >&2; exit 1; }
+  owner="${repo_full%/*}"; repo="${repo_full#*/}"; kind="pr"
+else
+  parsed="$(python3 "$SKILL_DIR/scripts/parse_target.py" "$target" --current-repo "$repo_full")" \
+    || { echo "$parsed" >&2; exit 1; }
+  owner="$(echo "$parsed" | python3 -c 'import json,sys;print(json.load(sys.stdin)["owner"])')"
+  repo="$(echo "$parsed"  | python3 -c 'import json,sys;print(json.load(sys.stdin)["repo"])')"
+  number="$(echo "$parsed"| python3 -c 'import json,sys;print(json.load(sys.stdin)["number"])')"
+  kind="$(echo "$parsed" | python3 -c 'import json,sys;print(json.load(sys.stdin)["kind"])')"
+fi
+repo_full="$owner/$repo"
+```
+
+**Resolve `kind` for bare numbers** (the issues API returns a `pull_request` object iff the number is a PR):
+
+```bash
+if [ "$kind" = "unknown" ]; then
+  if [ "$(gh api "repos/$repo_full/issues/$number" --jq '.pull_request != null' 2>/dev/null)" = "true" ]; then
+    kind="pr"
+  else
+    kind="issue"
+  fi
+fi
+```
+
+**State check** (the closed/merged → `--force` gate):
+
+```bash
+if [ "$kind" = "pr" ]; then
+  read -r state base_ref head_ref < <(gh pr view "$number" --json state,baseRefName,headRefName \
+    --jq '[.state,.baseRefName,.headRefName]|@tsv')
+  case "$state" in
+    CLOSED|MERGED) [ -n "$force" ] || { echo "PR #$number is $state. Pass --force to comment anyway." >&2; exit 1; } ;;
+  esac
+else
+  state="$(gh issue view "$number" --json state --jq .state)"
+  base_ref=""; head_ref=""
+  case "$state" in
+    CLOSED) [ -n "$force" ] || { echo "Issue #$number is $state. Pass --force to comment anyway." >&2; exit 1; } ;;
+  esac
+fi
+```
+
+`$SKILL_DIR` is this skill's directory (the folder containing `SKILL.md`), computed at the top of this step.
+
+### Step 2: Project the comment body
+
+Compute the repo-relative source path, then run the projection script. It is pure and
+deterministic — it reads the artifact, never modifies it, and never calls GitHub.
+
+```bash
+repo_root="$(git -C "$(dirname "$path")" rev-parse --show-toplevel 2>/dev/null)"
+if [ -n "$repo_root" ]; then relative_path="${path#$repo_root/}"; else relative_path="$path"; fi
+
+body_out="$(python3 "$SKILL_DIR/scripts/project.py" "$path" --source-path "$relative_path")" || {
+  # project.py exits non-zero only on the 65 KB size cap; its stderr message is already shown.
+  exit 1
+}
+doc_key="$(python3 - "$SKILL_DIR/scripts" "$path" "$relative_path" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import project
+fm, _ = project.split_frontmatter(open(sys.argv[2], encoding="utf-8").read())
+print(project.marker_key(fm, sys.argv[3]))
 PY
+)"
 ```
 
-Pipe this into the agent's working memory. Refuse the artifact (non-zero exit) if the regex doesn't match.
+`body_out` is the exact comment body; `doc_key` is the idempotency key (the `rp1_doc_id`,
+or `path:<relative_path>` when absent). The scripts path and file paths are passed as
+heredoc arguments (outside the quoted `<<'PY'` delimiter) so the shell expands them.
+Warnings from the projection (summary-ladder rung, etc.) are printed to stderr for the
+user to see.
 
-**Parse frontmatter into a flat dict.** The dict is `key -> string-value`. rp1 frontmatter never has nested dicts or lists (see `references/artifact-frontmatter.md`).
+The byte-exact contract is enforced by `tests/test_project.py` (run
+`python3 -m unittest discover -s skills/persist-rp1-artifact/tests`), not by manual walkthrough.
 
-```python
-fm = {}
-for line in frontmatter_text.splitlines():
-    if ':' in line:
-        k, _, v = line.partition(':')
-        fm[k.strip()] = v.strip()
-```
+### Step 3: Find any existing comment for this artifact
 
-**Validate required fields.** All three must be present and non-empty:
-
-| Field | Missing → exit message |
-|---|---|
-| `rp1_doc_id` | `Artifact is missing rp1_doc_id. Regenerate via the producing rp1 skill.` |
-| `producer` | `Artifact is missing required field: producer.` |
-| `artifact` | `Artifact is missing required field: artifact.` |
-
-**Derive the title.** Per `references/artifact-frontmatter.md` § Title derivation:
-
-```python
-def title_case(slug):
-    return ' '.join(w.capitalize() for w in slug.split('-'))
-artifact_title = title_case(fm['artifact'])  # "investigation-report" -> "Investigation Report"
-issue = fm.get('issue_id', '').strip()
-if issue:
-    title = f"{artifact_title} — {issue}"  # em-dash U+2014
-else:
-    title = artifact_title
-```
-
-**Capture optional fields with em-dash defaults** for the header table:
-
-```python
-def field(key):
-    v = fm.get(key, '').strip()
-    return v if v else '—'  # em-dash U+2014
-```
-
-### Step 3: Extract the top-summary section
-
-**Find the summary heading.** Apply this regex against the body text (multiline, case-insensitive):
-
-```
-^##\s+(\d+\.\s+)?(Executive Summary|Summary|Overview|TL;DR)\s*$
-```
-
-Implementation:
-
-```python
-import re
-SUMMARY_RE = re.compile(
-    r'^##\s+(?:\d+\.\s+)?(Executive Summary|Summary|Overview|TL;DR)\s*$',
-    re.MULTILINE | re.IGNORECASE
-)
-match = SUMMARY_RE.search(body)
-```
-
-**On match:** capture from the line *after* the matched heading up to (but not including) the next `^## ` line.
-
-```python
-if match:
-    start = match.end() + 1  # skip the newline after the heading
-    next_h2 = re.search(r'^## ', body[start:], re.MULTILINE)
-    end = start + next_h2.start() if next_h2 else len(body)
-    summary_body = body[start:end].lstrip('\n').rstrip() + '\n'
-    rest_body = body[end:].lstrip('\n').rstrip() + '\n' if end < len(body) else ''
-```
-
-**On miss:** fall back to the first H2 in the document. Emit a warning to stderr:
-
-```python
-else:
-    first_h2 = re.search(r'^## (.+)$', body, re.MULTILINE)
-    if not first_h2:
-        sys.exit("Artifact body has no H2 headings; cannot extract a summary section.")
-    print(f"WARNING: no Executive Summary section found; falling back to first H2 (\"{first_h2.group(1)}\").", file=sys.stderr)
-    start = first_h2.end() + 1
-    next_h2 = re.search(r'^## ', body[start:], re.MULTILINE)
-    end = start + next_h2.start() if next_h2 else len(body)
-    summary_body = body[start:end].lstrip('\n').rstrip() + '\n'
-    rest_body = body[end:].lstrip('\n').rstrip() + '\n' if end < len(body) else ''
-```
-
-**Strip the artifact's H1 title** from `rest_body`. The artifact body typically begins with `# Investigation Report — ...` — we don't want to duplicate it in the comment (the comment already has its own `## 📋 rp1 Artifact: ...` header). If `body` starts with `^# ` before the first `^## `, drop everything from start-of-body up to (but not including) the first `^## ` heading.
-
-After extraction:
-
-- `summary_body` is the verbatim content of the Executive Summary (or fallback) section, ending in exactly one newline.
-- `rest_body` is everything after that section, ending in exactly one newline (or empty string if the artifact had only one H2).
-
-### Step 4: Assemble the projected comment body
-
-**Build the incomplete banner string.** If `field('status') == 'incomplete'` (case-insensitive), set:
-
-```python
-banner = "\n> ⚠️ **This artifact is marked `incomplete`.** Reviewers: the analysis below may evolve.\n"
-```
-
-Otherwise `banner = ''` (empty string, no newline).
-
-**If `rest_body` is empty**, omit the `<details>` block entirely — emit only the summary section. This avoids an empty collapsible that looks broken.
-
-**Render the comment body** by interpolation against the template in `references/projection-format.md`:
-
-```python
-doc_id   = fm['rp1_doc_id']
-producer = fm['producer']
-artifact = fm['artifact']
-
-body_out = f"""<!-- rp1-artifact: {doc_id} -->
-## 📋 rp1 Artifact: {title}
-
-| Field | Value |
-|-------|-------|
-| Producer | `{producer}` |
-| Artifact type | `{artifact}` |
-| Issue ID | `{field('issue_id')}` |
-| Status | `{field('status')}` |
-| Generated | {field('date')} |
-| Doc ID | `{doc_id}` |
-| Source path | `{relative_path}` (gitignored, local to author) |
-{banner}
-### Executive Summary
-
-{summary_body}"""
-
-if rest_body:
-    body_out += f"""
-<details>
-<summary><strong>Full artifact</strong> (click to expand)</summary>
-
-{rest_body}
-</details>
-"""
-
-body_out += """
----
-<sub>🤖 Posted by `persist-rp1-artifact`. Re-run the skill to update this comment in place. Local artifact is gitignored and may be edited by `rp1` agents.</sub>
-"""
-```
-
-**Body-size check.** If `len(body_out.encode('utf-8')) > 65536`, exit with: `Comment body exceeds GitHub's 65 KB cap (<bytes> bytes). Multi-comment chunking is not yet supported.`
-
-**Validate the fixture contract.** When invoked on `examples/investigation-report-input.md`, this assembly **must** produce a body byte-identical to `examples/investigation-report-output.md`. Diff with:
+**Fetch all comments on the target.** The endpoint is the same for PRs and issues:
 
 ```bash
-diff <(persist-rp1-artifact-projection examples/investigation-report-input.md) examples/investigation-report-output.md
-```
-
-If the diff is non-empty, the projection logic has drifted from the spec — fix it before proceeding.
-
-### Step 5: Find any existing comment for this artifact
-
-**Fetch all PR comments.**
-
-```bash
-gh api -X GET "repos/$repo_full/issues/$pr_number/comments" --paginate \
+gh api -X GET "repos/$repo_full/issues/$number/comments" --paginate \
   --jq '[.[] | {id: .id, body: .body, user_login: .user.login, html_url: .html_url, updated_at: .updated_at}]'
 ```
 
 This returns a JSON array. Save it to a variable.
 
-**Grep for the marker.** The marker is `<!-- rp1-artifact: <doc_id> -->` and is **always on line 1** of any comment this skill posts:
+**Grep for the marker.** The marker is `<!-- rp1-artifact: <doc_key> -->` and is **always on line 1** of any comment this skill posts:
 
 ```python
-marker = f"<!-- rp1-artifact: {doc_id} -->"
+marker = f"<!-- rp1-artifact: {doc_key} -->"
 matches = [c for c in all_comments if c['body'].startswith(marker)]
 ```
 
@@ -312,7 +201,7 @@ if len(matches) == 0:
     soft_match_footer = "Posted by `persist-rp1-artifact`"
     soft_matches = [c for c in all_comments if soft_match_footer in c['body'] and c['user_login'] == me]
     if soft_matches:
-        print(f"WARNING: found {len(soft_matches)} prior persist-rp1-artifact comment(s) but no marker for doc_id {doc_id}. Idempotency is broken — a new comment will be posted, orphaning the old one(s).", file=sys.stderr)
+        print(f"WARNING: found {len(soft_matches)} prior persist-rp1-artifact comment(s) but no marker for doc_key {doc_key}. Idempotency is broken — a new comment will be posted, orphaning the old one(s).", file=sys.stderr)
 
 elif len(matches) == 1:
     only = matches[0]
@@ -333,12 +222,12 @@ elif len(matches) == 1:
 
 else:  # 2 or more matches
     urls = '\n  '.join(c['html_url'] for c in matches)
-    sys.exit(f"Found {len(matches)} comments matching doc_id {doc_id}:\n  {urls}\nDelete duplicates manually, then re-run.")
+    sys.exit(f"Found {len(matches)} comments matching doc_key {doc_key}:\n  {urls}\nDelete duplicates manually, then re-run.")
 ```
 
 After this step you have `action` ∈ {`POST`, `PATCH`} and `target_comment_id` (None for POST, comment id for PATCH).
 
-### Step 6: Post or update (honoring `--dry-run`)
+### Step 4: Post or update (honoring `--dry-run`)
 
 **If `--dry-run`** is set, emit the diagnostic block to stderr and the body to stdout, then exit 0:
 
@@ -346,10 +235,11 @@ After this step you have `action` ∈ {`POST`, `PATCH`} and `target_comment_id` 
 if dry_run:
     matched_url = matches[0]['html_url'] if matches else 'none'
     size_bytes = len(body_out.encode('utf-8'))
+    target_line = f"#{number} ({state}, base: {base_ref}, head: {head_ref})" if kind == "pr" else f"#{number} ({state}, issue)"
     sys.stderr.write(f"""=== persist-rp1-artifact (dry run) ===
 Artifact: {relative_path}
-Doc ID:   {doc_id}
-PR:       #{pr_number} ({pr_state}, base: {base_ref}, head: {head_ref})
+Doc key:  {doc_key}
+Target:   {target_line}
 Size:     {size_bytes} / 65536 bytes
 Action:   would {action} (matched comment: {matched_url})
 
@@ -365,8 +255,8 @@ Stdout receives only the projected body (so `--dry-run | diff expected.md -` wor
 **Real run — POST:**
 
 ```bash
-echo "$body_out" > /tmp/persist-rp1-artifact-body.md
-gh api -X POST "repos/$repo_full/issues/$pr_number/comments" \
+printf '%s' "$body_out" > /tmp/persist-rp1-artifact-body.md
+gh api -X POST "repos/$repo_full/issues/$number/comments" \
   -F body=@/tmp/persist-rp1-artifact-body.md \
   --jq '.html_url'
 ```
@@ -381,18 +271,18 @@ gh api -X PATCH "repos/$repo_full/issues/comments/$target_comment_id" \
   --jq '.html_url'
 ```
 
-Note the URL path difference: `POST` goes to `/issues/{pr_number}/comments` (creates on the issue/PR), but `PATCH` goes to `/issues/comments/{comment_id}` (no PR number — comment IDs are unique across the repo).
+Note the URL path difference: `POST` goes to `/issues/{number}/comments` (creates on the PR or issue), but `PATCH` goes to `/issues/comments/{comment_id}` (no number — comment IDs are unique across the repo).
 
 **Final output to the user.**
 
 ```
-✓ <Posted|Updated> rp1 artifact on PR #<pr_number>
-  Artifact: <artifact-type> / <issue-id> (doc_id <doc-id>)
+✓ <Posted|Updated> rp1 artifact on <PR|issue> #<number>
+  Artifact: <artifact-type> / <issue-id> (doc_key <doc-key>)
   Comment:  <html_url>
   Size:     <kb-formatted> / 65 KB cap
 ```
 
-Where `<Posted|Updated>` matches the action, and `<kb-formatted>` shows like `24.8 KB`.
+Where `<Posted|Updated>` matches the action, `<PR|issue>` matches `kind`, and `<kb-formatted>` shows like `24.8 KB`.
 
 **Cleanup.** `rm -f /tmp/persist-rp1-artifact-body.md` (always, even on failure).
 
