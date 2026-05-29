@@ -157,7 +157,6 @@ GitHub strips HTML comments from the rendered view, so the marker is invisible t
 └── skills/
     └── persist-rp1-artifact/
         ├── SKILL.md             ← the procedure the agent follows
-        ├── DESIGN.md            ← the spec
         ├── scripts/
         │   ├── project.py       ← pure projection: artifact → comment body (stdout)
         │   └── parse_target.py  ← pure: target string → {owner,repo,number,kind}

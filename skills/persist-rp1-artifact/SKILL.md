@@ -293,4 +293,4 @@ Where `<Posted|Updated>` matches the action, `<PR|issue>` matches `kind`, and `<
 
 ## Spec
 
-See [`docs/superpowers/specs/2026-05-28-persist-rp1-artifact-generality-design.md`](../../docs/superpowers/specs/2026-05-28-persist-rp1-artifact-generality-design.md) for the spec this skill implements. (`DESIGN.md` is the superseded v1 design.)
+The contract this skill implements lives in `references/` (artifact frontmatter, projection format, edge cases). See the README for the high-level design rationale.
