@@ -129,3 +129,47 @@ def extract_summary(body):
         return _lead_split(body, m.start() + 1), "WARNING: no structure found; using lead paragraph as summary (rung 5)."
     # rung 6 — single block
     return (_norm(body), ""), "WARNING: single-block body; posting whole body as summary (rung 6)."
+
+
+BANNER = (
+    "> ⚠️ **This artifact is marked `incomplete`.** "
+    "Reviewers: the analysis below may evolve."
+)
+
+
+def build_table_rows(fm, source_path):
+    """Header table rows, skipping any field that has no value. Source path always shown."""
+    rows = ["| Field | Value |", "|-------|-------|"]
+    producer = fm.get("producer", "").strip()
+    atype = fm.get("artifact", "").strip() or fm.get("type", "").strip()
+    issue = fm.get("issue_id", "").strip()
+    status = fm.get("status", "").strip()
+    date = fm.get("date", "").strip()
+    doc = fm.get("rp1_doc_id", "").strip()
+    if producer:
+        rows.append(f"| Producer | `{producer}` |")
+    if atype:
+        rows.append(f"| Artifact type | `{atype}` |")
+    if issue:
+        rows.append(f"| Issue ID | `{issue}` |")
+    if status:
+        rows.append(f"| Status | `{status}` |")
+    if date:
+        rows.append(f"| Generated | {date} |")
+    if doc:
+        rows.append(f"| Doc ID | `{doc}` |")
+    rows.append(f"| Source path | `{source_path}` (gitignored, local to author) |")
+    return rows
+
+
+def build_banner(fm):
+    """Return the incomplete banner line, or None."""
+    if fm.get("status", "").strip().lower() == "incomplete":
+        return BANNER
+    return None
+
+
+def marker_key(fm, source_path):
+    """Idempotency key: rp1_doc_id when present, else path:<source_path>."""
+    doc = fm.get("rp1_doc_id", "").strip()
+    return doc if doc else f"path:{source_path}"

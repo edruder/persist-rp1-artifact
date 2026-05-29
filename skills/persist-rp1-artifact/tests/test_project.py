@@ -137,5 +137,53 @@ class TestSummaryLadder(unittest.TestCase):
         self.assertIn("rung 6", warn)
 
 
+class TestTableBannerKey(unittest.TestCase):
+    def test_table_full(self):
+        fm = {
+            "producer": "bug-investigator", "artifact": "investigation-report",
+            "issue_id": "node-20-upgrade", "status": "complete", "date": "2026-05-12",
+            "rp1_doc_id": "9f27673c",
+        }
+        rows = project.build_table_rows(fm, "examples/x-input.md")
+        self.assertEqual(rows[0], "| Field | Value |")
+        self.assertEqual(rows[1], "|-------|-------|")
+        self.assertIn("| Producer | `bug-investigator` |", rows)
+        self.assertIn("| Artifact type | `investigation-report` |", rows)
+        self.assertIn("| Doc ID | `9f27673c` |", rows)
+        self.assertIn("| Source path | `examples/x-input.md` (gitignored, local to author) |", rows)
+        self.assertEqual(len(rows), 9)  # header + sep + 7 data rows
+
+    def test_table_routing_only_skips_absent(self):
+        fm = {"producer": "bug-investigator", "type": "document"}
+        rows = project.build_table_rows(fm, "examples/r-input.md")
+        self.assertIn("| Producer | `bug-investigator` |", rows)
+        self.assertIn("| Artifact type | `document` |", rows)  # falls back to `type`
+        self.assertNotIn("Issue ID", "\n".join(rows))
+        self.assertNotIn("Status", "\n".join(rows))
+        self.assertNotIn("Doc ID", "\n".join(rows))
+        # header + sep + producer + artifact-type + source path
+        self.assertEqual(len(rows), 5)
+
+    def test_table_no_frontmatter_only_source(self):
+        rows = project.build_table_rows({}, "examples/n-input.md")
+        self.assertEqual(len(rows), 3)  # header + sep + source path only
+
+    def test_banner_incomplete(self):
+        self.assertEqual(
+            project.build_banner({"status": "incomplete"}),
+            "> ⚠️ **This artifact is marked `incomplete`.** Reviewers: the analysis below may evolve.",
+        )
+
+    def test_banner_absent(self):
+        self.assertIsNone(project.build_banner({"status": "complete"}))
+        self.assertIsNone(project.build_banner({}))
+
+    def test_key_prefers_doc_id(self):
+        self.assertEqual(project.marker_key({"rp1_doc_id": "abc"}, "examples/x.md"), "abc")
+
+    def test_key_falls_back_to_path(self):
+        self.assertEqual(project.marker_key({}, "examples/x.md"), "path:examples/x.md")
+
+
 if __name__ == "__main__":
     unittest.main()
