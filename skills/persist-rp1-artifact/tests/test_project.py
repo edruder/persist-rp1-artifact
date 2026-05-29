@@ -41,5 +41,48 @@ class TestSplitFrontmatter(unittest.TestCase):
         self.assertTrue(fm["description"].startswith("Root cause"))
 
 
+class TestTitle(unittest.TestCase):
+    def test_artifact_field_with_issue(self):
+        fm = {"artifact": "investigation-report", "issue_id": "node-20-upgrade"}
+        self.assertEqual(
+            project.derive_title(fm, "# Anything\n", "/x/y.md"),
+            "Investigation Report — node-20-upgrade",
+        )
+
+    def test_artifact_field_no_issue(self):
+        self.assertEqual(
+            project.derive_title({"artifact": "code-audit"}, "# H\n", "/x/y.md"),
+            "Code Audit",
+        )
+
+    def test_h1_fallback(self):
+        fm = {"producer": "bug-investigator"}  # no artifact field
+        body = "# Follow-up: fix the thing\n\nbody\n"
+        self.assertEqual(project.derive_title(fm, body, "/x/y.md"), "Follow-up: fix the thing")
+
+    def test_producer_fallback(self):
+        self.assertEqual(
+            project.derive_title({"producer": "bug-investigator"}, "no heading\n", "/x/y.md"),
+            "Bug Investigator",
+        )
+
+    def test_filename_fallback(self):
+        self.assertEqual(
+            project.derive_title({}, "no heading here\n", "/a/b/opencv_notes.md"),
+            "Opencv Notes",
+        )
+
+
+class TestStripH1(unittest.TestCase):
+    def test_strips_leading_h1_line_only(self):
+        self.assertEqual(
+            project.strip_leading_h1("\n# Title\n\n## Section\n\nx\n"),
+            "## Section\n\nx\n",
+        )
+
+    def test_no_h1_unchanged(self):
+        self.assertEqual(project.strip_leading_h1("## Section\n\nx\n"), "## Section\n\nx\n")
+
+
 if __name__ == "__main__":
     unittest.main()

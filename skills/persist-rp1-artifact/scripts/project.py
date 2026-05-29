@@ -40,3 +40,39 @@ def split_frontmatter(text):
                 val = val[1:]     # only leading quote (multi-line value) → strip just the opener
         fm[key] = val
     return fm, m.group(2)
+
+
+def _title_case(slug):
+    words = slug.replace("_", "-").split("-")
+    return " ".join(w.capitalize() for w in words if w)
+
+
+def _first_h1(body):
+    m = re.search(r"^#\s+(.+?)\s*$", body, re.MULTILINE)
+    return m.group(1) if m else None
+
+
+def derive_title(fm, body, artifact_path):
+    """Title precedence: artifact field -> first H1 -> producer -> filename stem."""
+    art = fm.get("artifact", "").strip()
+    if art:
+        title = _title_case(art)
+        issue = fm.get("issue_id", "").strip()
+        return f"{title} — {issue}" if issue else title  # em-dash U+2014
+    h1 = _first_h1(body)
+    if h1:
+        return h1
+    prod = fm.get("producer", "").strip()
+    if prod:
+        return _title_case(prod)
+    stem = os.path.splitext(os.path.basename(artifact_path))[0]
+    return _title_case(stem)
+
+
+def strip_leading_h1(body):
+    """Drop a single leading '# ...' line (and the blank lines around it)."""
+    b = body.lstrip("\n")
+    if b.startswith("# "):
+        nl = b.find("\n")
+        b = b[nl + 1:] if nl != -1 else ""
+    return b.lstrip("\n")
