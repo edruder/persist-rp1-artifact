@@ -76,3 +76,56 @@ def strip_leading_h1(body):
         nl = b.find("\n")
         b = b[nl + 1:] if nl != -1 else ""
     return b.lstrip("\n")
+
+
+SUMMARY_RE = re.compile(
+    r"^##\s+(?:\d+\.\s+)?(Executive Summary|Summary|Overview|TL;DR)\s*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+
+def _norm(s):
+    """Normalize a slice to: stripped of edge blank lines, ending in one newline."""
+    s = s.lstrip("\n").rstrip()
+    return s + "\n" if s else ""
+
+
+def _section_after(body, heading_match):
+    """Section shape: content after a heading line up to the next '## '."""
+    start = heading_match.end() + 1  # skip the newline after the heading line
+    nxt = re.search(r"^## ", body[start:], re.MULTILINE)
+    end = start + nxt.start() if nxt else len(body)
+    summary = _norm(body[start:end])
+    rest = _norm(body[end:]) if end < len(body) else ""
+    return summary, rest
+
+
+def _lead_split(body, idx):
+    """Lead shape: content before idx is the summary, idx onward is the rest."""
+    summary = _norm(body[:idx])
+    rest = _norm(body[idx:])
+    return summary, rest
+
+
+def extract_summary(body):
+    """Deterministic 6-rung ladder. Returns ((summary, rest), warning_or_None)."""
+    m = SUMMARY_RE.search(body)
+    if m:  # rung 1
+        return _section_after(body, m), None
+    m = re.search(r"^## .*$", body, re.MULTILINE)
+    if m:  # rung 2
+        heading = m.group(0)[3:].strip()
+        return _section_after(body, m), (
+            f'WARNING: no Executive Summary section found; falling back to first H2 ("{heading}").'
+        )
+    m = re.search(r"^#{3,6}\s", body, re.MULTILINE)
+    if m:  # rung 3
+        return _lead_split(body, m.start()), "WARNING: no H2 found; splitting before first subheading (rung 3)."
+    m = re.search(r"^(?:---|\*\*\*|___)\s*$", body, re.MULTILINE)
+    if m:  # rung 4
+        return _lead_split(body, m.start()), "WARNING: no headings found; splitting at first thematic break (rung 4)."
+    m = re.search(r"\n[ \t]*\n", body)
+    if m:  # rung 5 — split at the first blank line
+        return _lead_split(body, m.start() + 1), "WARNING: no structure found; using lead paragraph as summary (rung 5)."
+    # rung 6 — single block
+    return (_norm(body), ""), "WARNING: single-block body; posting whole body as summary (rung 6)."

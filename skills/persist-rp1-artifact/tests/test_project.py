@@ -84,5 +84,58 @@ class TestStripH1(unittest.TestCase):
         self.assertEqual(project.strip_leading_h1("## Section\n\nx\n"), "## Section\n\nx\n")
 
 
+class TestSummaryLadder(unittest.TestCase):
+    def _run(self, body):
+        return project.extract_summary(body)
+
+    def test_rung1_named_summary(self):
+        body = "## Executive Summary\n\nlead\n\n## Details\n\nmore\n"
+        (summ, rest), warn = self._run(body)
+        self.assertEqual(summ, "lead\n")
+        self.assertEqual(rest, "## Details\n\nmore\n")
+        self.assertIsNone(warn)
+
+    def test_rung1_numbered_named_summary(self):
+        body = "## 1. Executive Summary\n\nlead\n\n## 2. Details\n\nmore\n"
+        (summ, rest), warn = self._run(body)
+        self.assertEqual(summ, "lead\n")
+        self.assertEqual(rest, "## 2. Details\n\nmore\n")
+
+    def test_rung2_first_h2(self):
+        body = "## Background\n\nb\n\n## Other\n\no\n"
+        (summ, rest), warn = self._run(body)
+        self.assertEqual(summ, "b\n")
+        self.assertEqual(rest, "## Other\n\no\n")
+        self.assertIn("falling back to first H2", warn)
+
+    def test_rung3_subheading(self):
+        body = "intro text\n\n### Sub\n\ndetail\n"
+        (summ, rest), warn = self._run(body)
+        self.assertEqual(summ, "intro text\n")
+        self.assertEqual(rest, "### Sub\n\ndetail\n")
+        self.assertIn("rung 3", warn)
+
+    def test_rung4_thematic_break(self):
+        body = "lead para\n\n---\n\nafter break\n"
+        (summ, rest), warn = self._run(body)
+        self.assertEqual(summ, "lead para\n")
+        self.assertEqual(rest, "---\n\nafter break\n")
+        self.assertIn("rung 4", warn)
+
+    def test_rung5_paragraph(self):
+        body = "first paragraph\n\nsecond paragraph\n\nthird\n"
+        (summ, rest), warn = self._run(body)
+        self.assertEqual(summ, "first paragraph\n")
+        self.assertEqual(rest, "second paragraph\n\nthird\n")
+        self.assertIn("rung 5", warn)
+
+    def test_rung6_single_block(self):
+        body = "just one block of text\nwith no blank line\n"
+        (summ, rest), warn = self._run(body)
+        self.assertEqual(summ, "just one block of text\nwith no blank line\n")
+        self.assertEqual(rest, "")
+        self.assertIn("rung 6", warn)
+
+
 if __name__ == "__main__":
     unittest.main()
