@@ -8,7 +8,7 @@ rp1 agents (`bug-investigator`, `feature-architect`, `code-auditor`, etc.) produ
 
 Two bad alternatives the team had been living with:
 
-1. **Commit the artifact to the repo.** Bloats `git log` and file tree with analysis that has no long-term home. ([Real example](https://github.com/anvilco/pdf-service/pull/564) — a 397-line investigation report was force-added to a 3-line PR.)
+1. **Commit the artifact to the repo.** Bloats `git log` and file tree with analysis that has no long-term home.
 2. **Discard the artifact.** Reviewers lose the reasoning; future maintainers can't reconstruct the "why."
 
 `persist-rp1-artifact` is the third option: publish the artifact as a **PR or issue comment** that lives where reviewers actually look, while the original file stays gitignored under `.rp1/work/`. Re-running the skill on an edited artifact updates the same comment in place (no spam, GitHub's "edited" badge surfaces the change).
