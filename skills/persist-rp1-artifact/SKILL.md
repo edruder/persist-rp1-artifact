@@ -1,11 +1,11 @@
 ---
 name: persist-rp1-artifact
-description: Use when the user has an rp1 artifact under .rp1/work/ (e.g. investigation report, design doc, audit) and wants to publish it as a PR comment instead of committing the file to the repo. Idempotent — re-runs update the same comment in place via an HTML doc-id marker. Invoke when the user says "post rp1 artifact to PR", "publish investigation report as PR comment", "persist rp1 artifact", or runs `/persist-rp1-artifact`.
+description: Use when the user has an rp1 artifact under .rp1/work/ (e.g. investigation report, design doc, audit) and wants to publish it as a PR or issue comment instead of committing the file to the repo. Idempotent — re-runs update the same comment in place via an HTML marker. Invoke when the user says "post rp1 artifact to PR", "publish investigation report as a PR or issue comment", "persist rp1 artifact", or runs `/persist-rp1-artifact`.
 ---
 
 # persist-rp1-artifact
 
-Publish an rp1 artifact (frontmatter-bearing markdown under `.rp1/work/`) as a PR comment without committing the artifact file to the repo. Re-running updates the same comment in place.
+Publish an rp1 artifact (markdown under `.rp1/work/`; frontmatter optional) as a PR or issue comment without committing the artifact file to the repo. Re-running updates the same comment in place.
 
 **The artifact file is never modified by this skill** — it is read-only on the local side, write-only on the GitHub side.
 
@@ -22,8 +22,8 @@ Publish an rp1 artifact (frontmatter-bearing markdown under `.rp1/work/`) as a P
 ## When to invoke
 
 - User explicitly runs `/persist-rp1-artifact <path> [target]`.
-- User has just produced an rp1 artifact and asks how to share it on a PR without committing it.
-- User asks to "summarize an rp1 investigation report into a PR comment."
+- User has just produced an rp1 artifact and asks how to share it on a PR or issue without committing it.
+- User asks to "summarize an rp1 investigation report into a PR or issue comment."
 
 ## When NOT to invoke
 
