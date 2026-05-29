@@ -9,9 +9,9 @@ Publish an rp1 artifact (frontmatter-bearing markdown under `.rp1/work/`) as a P
 
 **The artifact file is never modified by this skill** — it is read-only on the local side, write-only on the GitHub side.
 
-> ### ⚠️ Always `--dry-run` first on a real PR
+> ### ⚠️ Always `--dry-run` first on a real PR or issue
 >
-> The skill writes to a real GitHub PR/issue comment by default. Before invoking against a target you care about (especially one with active reviewers), always do a dry-run first:
+> The skill writes to a real GitHub PR/issue comment by default. Before invoking against a real PR/issue you care about (especially one with active reviewers), always do a dry-run first:
 >
 > ```
 > /persist-rp1-artifact <path> [target] --dry-run

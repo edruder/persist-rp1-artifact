@@ -4,7 +4,7 @@ Behavior at every decision point that could be ambiguous, destructive, or non-id
 
 ## Re-run lookup outcomes
 
-After fetching all comments on the PR and grepping for `<!-- rp1-artifact: <doc_id> -->`:
+After fetching all comments on the PR or issue and grepping for `<!-- rp1-artifact: <doc_id> -->`:
 
 | Matches | Author of match | Behavior |
 |---|---|---|
@@ -21,7 +21,7 @@ To get a comment's author: the `user.login` field on each comment object.
 If someone manually edited the canonical comment and removed the `<!-- rp1-artifact: ... -->` line, the lookup finds 0 matches → we POST a new comment. **Print a warning to stderr:**
 
 ```
-WARNING: idempotency was broken for this artifact (no marker found in existing PR comments).
+WARNING: idempotency was broken for this artifact (no marker found in existing comments).
 A new comment will be posted, leaving the pre-existing comment orphaned.
 Consider deleting the old comment manually.
 ```
@@ -37,12 +37,12 @@ Principle: **fail loud, never destructive, never silent.** All errors exit non-z
 | `gh` not installed | `command -v gh` fails | `gh CLI not found. Install: https://cli.github.com` |
 | `gh` not authenticated | `gh auth status` exits non-zero | `gh is not authenticated. Run: gh auth login` |
 | Path doesn't exist | `test -f "$path"` fails | `Artifact not found: <absolute-path>` |
-| Path not under `.rp1/work/` | prefix check on `$path` | **WARN, continue.** `WARNING: <path> is outside .rp1/work/. Idempotency requires rp1_doc_id frontmatter.` |
-| No frontmatter block | regex `^---\n.*?\n---\n` fails | `Artifact has no YAML frontmatter block.` |
-| `rp1_doc_id` absent | frontmatter parsing | `Artifact is missing rp1_doc_id. Regenerate via the producing rp1 skill.` |
-| `producer` or `artifact` absent | frontmatter parsing | `Artifact is missing required field: <field>.` |
-| No PR for branch + no `pr-number` arg | `gh pr view` returns no PR | `No open PR for current branch. Push and open a PR, or pass an explicit PR number.` |
+| Path not under `.rp1/work/` | prefix check on `$path` | **WARN, continue.** `WARNING: <path> is outside .rp1/work/.` The path-based key still works outside `.rp1/work/`; the warning is informational. |
+| Frontmatter or any field absent | n/a | **Not an error.** Frontmatter is optional; absent fields are skipped; the idempotency key falls back to `path:<relative-path>`. |
+| Target is an issue (not a PR) | `kind` resolution | **Not an error.** Comments use `/issues/{n}/comments`, valid for both. State checked via `gh issue view`. |
+| No PR for branch + no target arg | `gh pr view` returns no PR | `No open PR for current branch. Push and open a PR, or pass an explicit PR/issue number or URL.` |
 | PR closed or merged | `gh pr view --json state` | **WARN, allow only with `--force`.** `PR #<n> is <state>. Pass --force to comment anyway.` |
+| Closed issue | `gh issue view --json state` | **WARN, allow only with `--force`.** `Issue #<n> is CLOSED. Pass --force to comment anyway.` |
 | Comment body > 65 536 chars | `wc -c` after assembly | `Comment body exceeds GitHub's 65 KB cap (<size> bytes). Multi-comment chunking is not yet supported.` |
 | Network / GitHub API error | non-zero exit from `gh api` | Bubble up the `gh` error verbatim. Local artifact is unchanged. |
 | No recognizable summary section | regex misses all variants | **WARN, fall back to first H2.** `WARNING: no Executive Summary section found; falling back to first H2 ("<heading>").` |
@@ -60,7 +60,7 @@ A single flag that loosens three guard rails at once:
 `--force` does **not** loosen:
 
 - Multiple-match refusal (still requires manual dedup)
-- Missing `rp1_doc_id` refusal (no idempotency = no go, even with force)
+- (there is no missing-field refusal anymore — frontmatter is optional)
 - Body-size cap (65 KB is a GitHub-side limit)
 
 ## --dry-run flag effects
@@ -70,8 +70,9 @@ Runs procedure steps 1–5 (resolve PR, read, parse, project, lookup existing). 
 ```
 === persist-rp1-artifact (dry run) ===
 Artifact: <relative-path>
-Doc ID:   <rp1_doc_id>
-PR:       #<n> (<state>, base: <base>, head: <head>)
+Doc key:  <doc_key>
+Target:   #<n> (<state>, base: <base>, head: <head>)   ← PR format
+Target:   #<n> (<state>, issue)                          ← issue format
 Size:     <bytes> / 65536 bytes
 Action:   would <POST|PATCH> (matched comment: <url-or-none>)
 
@@ -81,3 +82,10 @@ Action:   would <POST|PATCH> (matched comment: <url-or-none>)
 ```
 
 Then exit 0. **Stdout is the projected body for piping/diffing.** Diagnostic line ("Action:" etc.) goes to stderr so `--dry-run | diff expected.md -` works.
+
+## Path-based idempotency key
+
+When an artifact has no `rp1_doc_id`, the marker is keyed off the repo-relative path
+(`<!-- rp1-artifact: path:<relative-path> -->`). Stable across re-runs; the skill never
+writes to the artifact. Trade-off: **renaming or moving the artifact orphans its old
+comment** (a fresh comment is posted). Delete the stale comment manually if that happens.
