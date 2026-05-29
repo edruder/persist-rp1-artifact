@@ -69,7 +69,11 @@ POST or PATCH (or, under `--dry-run`, print the body + diagnostic and stop).
    Closed/merged PRs and closed issues are gated behind `--force`.
 3. **Project body:** `scripts/project.py` turns the artifact into the byte-exact
    comment body and computes `doc_key` (`rp1_doc_id`, else `path:<relative-path>`).
-   Over the 65 KB cap → hard error.
+   The split between the visible Executive Summary and the folded "Full artifact"
+   is chosen by a deterministic ladder; an author can override it by placing a
+   `<!-- rp1:split -->` line in the artifact (invisible when rendered) — content
+   before it is the summary, content after it is folded. Over the 65 KB cap →
+   hard error.
 4. **Find existing comment:** fetch all comments, match the line-1 marker
    `<!-- rp1-artifact: <doc_key> -->`, then apply the decision table — 0 → POST,
    1 mine → PATCH, 1 foreign → refuse (unless `--force`), ≥2 → refuse (always).

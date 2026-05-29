@@ -84,6 +84,76 @@ class TestStripH1(unittest.TestCase):
         self.assertEqual(project.strip_leading_h1("## Section\n\nx\n"), "## Section\n\nx\n")
 
 
+class TestSplitMarkerRung0(unittest.TestCase):
+    """rung 0: an author-placed `<!-- rp1:split -->` line wins over every heuristic."""
+
+    def _run(self, body):
+        return project.extract_summary(body)
+
+    def test_splits_at_marker(self):
+        body = "lead prose\n\n<!-- rp1:split -->\n\n## Mechanism\n\ndetail\n"
+        (summ, rest), warn = self._run(body)
+        self.assertEqual(summ, "lead prose\n")
+        self.assertEqual(rest, "## Mechanism\n\ndetail\n")
+        self.assertIsNone(warn)
+
+    def test_marker_line_is_dropped_from_both_sides(self):
+        body = "before\n\n<!-- rp1:split -->\n\nafter\n"
+        (summ, rest), _ = self._run(body)
+        self.assertNotIn("rp1:split", summ)
+        self.assertNotIn("rp1:split", rest)
+
+    def test_overrides_executive_summary_heading(self):
+        # Marker precedes the named-summary heading; rung 0 must beat rung 1.
+        body = "intro\n\n<!-- rp1:split -->\n\n## Executive Summary\n\nstuff\n"
+        (summ, rest), warn = self._run(body)
+        self.assertEqual(summ, "intro\n")
+        self.assertEqual(rest, "## Executive Summary\n\nstuff\n")
+        self.assertIsNone(warn)
+
+    def test_overrides_first_h2(self):
+        body = "lead\n\n<!-- rp1:split -->\n\n## Background\n\nb\n"
+        (summ, rest), warn = self._run(body)
+        self.assertEqual(summ, "lead\n")
+        self.assertIsNone(warn)  # no rung-2 "falling back to first H2" warning
+
+    def test_first_marker_wins(self):
+        body = "one\n\n<!-- rp1:split -->\n\ntwo\n\n<!-- rp1:split -->\n\nthree\n"
+        (summ, rest), _ = self._run(body)
+        self.assertEqual(summ, "one\n")
+        self.assertEqual(rest, "two\n\n<!-- rp1:split -->\n\nthree\n")
+
+    def test_empty_summary_warns(self):
+        body = "<!-- rp1:split -->\n\nonly the rest\n"
+        (summ, rest), warn = self._run(body)
+        self.assertEqual(summ, "")
+        self.assertEqual(rest, "only the rest\n")
+        self.assertIn("no content precedes", warn)
+
+    def test_marker_at_end_means_no_fold(self):
+        body = "all summary here\n\n<!-- rp1:split -->\n"
+        (summ, rest), warn = self._run(body)
+        self.assertEqual(summ, "all summary here\n")
+        self.assertEqual(rest, "")
+        self.assertIsNone(warn)
+
+    def test_whitespace_tolerant(self):
+        body = "lead\n\n   <!--   rp1:split   -->\t\n\nrest\n"
+        (summ, rest), warn = self._run(body)
+        self.assertEqual(summ, "lead\n")
+        self.assertEqual(rest, "rest\n")
+        self.assertIsNone(warn)
+
+    def test_inline_marker_ignored(self):
+        # A marker embedded mid-line is not a split directive: rung 0 does not fire,
+        # the ladder falls through to a heuristic rung, and the marker text survives.
+        body = "a paragraph with <!-- rp1:split --> inside it\n\nsecond paragraph\n"
+        (summ, rest), warn = self._run(body)
+        self.assertEqual(summ, "a paragraph with <!-- rp1:split --> inside it\n")
+        self.assertEqual(rest, "second paragraph\n")
+        self.assertIn("rung 5", warn)  # fell through to the lead-paragraph rung
+
+
 class TestSummaryLadder(unittest.TestCase):
     def _run(self, body):
         return project.extract_summary(body)
@@ -218,6 +288,7 @@ class TestGolden(unittest.TestCase):
         ("routing-only", "examples/routing-only-input.md"),
         ("no-frontmatter", "examples/no-frontmatter-input.md"),
         ("lead-split", "examples/lead-split-input.md"),
+        ("split-marker", "examples/split-marker-input.md"),
     ]
 
     def test_golden(self):

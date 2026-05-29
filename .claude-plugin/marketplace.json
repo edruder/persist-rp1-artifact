@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "persist-rp1-artifact",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "description": "Publish rp1 artifacts (investigation reports, design docs, audits) as idempotent PR comments without committing the files to the repo.",
       "author": {
         "name": "Ed Ruder",

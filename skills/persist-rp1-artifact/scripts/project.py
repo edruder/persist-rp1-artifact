@@ -78,6 +78,11 @@ def strip_leading_h1(body):
     return b.lstrip("\n")
 
 
+# An author-placed split marker on its own line. Case-sensitive token; any
+# surrounding whitespace (and internal spacing inside the comment) is tolerated.
+# An inline marker (mid-paragraph) never matches — the whole line must be the marker.
+SPLIT_RE = re.compile(r"^[ \t]*<!--[ \t]*rp1:split[ \t]*-->[ \t]*$", re.MULTILINE)
+
 SUMMARY_RE = re.compile(
     r"^##\s+(?:\d+\.\s+)?(Executive Summary|Summary|Overview|TL;DR)\s*$",
     re.MULTILINE | re.IGNORECASE,
@@ -108,7 +113,22 @@ def _lead_split(body, idx):
 
 
 def extract_summary(body):
-    """Deterministic 6-rung ladder. Returns ((summary, rest), warning_or_None)."""
+    """Deterministic ladder. Returns ((summary, rest), warning_or_None).
+
+    rung 0 is an explicit author-placed `<!-- rp1:split -->` marker: content
+    before it is the summary, content after it is the rest, and the marker line
+    itself is dropped. It overrides every heuristic rung below (including a named
+    Executive Summary heading) because it is the author's stated intent.
+    """
+    m = SPLIT_RE.search(body)
+    if m:  # rung 0 — explicit split marker
+        summary = _norm(body[:m.start()])
+        rest = _norm(body[m.end():])
+        warn = None if summary else (
+            "WARNING: <!-- rp1:split --> marker found but no content precedes it; "
+            "the Executive Summary will be empty."
+        )
+        return (summary, rest), warn
     m = SUMMARY_RE.search(body)
     if m:  # rung 1
         return _section_after(body, m), None
