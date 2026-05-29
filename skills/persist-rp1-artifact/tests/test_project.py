@@ -185,5 +185,47 @@ class TestTableBannerKey(unittest.TestCase):
         self.assertEqual(project.marker_key({}, "examples/x.md"), "path:examples/x.md")
 
 
+class TestAssembleAndProject(unittest.TestCase):
+    def test_assemble_no_banner_with_rest(self):
+        rows = ["| Field | Value |", "|-------|-------|", "| Producer | `p` |",
+                "| Source path | `examples/x.md` (gitignored, local to author) |"]
+        out = project.assemble("doc1", "Title", rows, None, "lead\n", "## Rest\n\nmore\n")
+        self.assertTrue(out.startswith("<!-- rp1-artifact: doc1 -->\n## \U0001F4CB rp1 Artifact: Title\n\n"))
+        self.assertIn("\n\n### Executive Summary\n\nlead\n\n<details>\n", out)
+        self.assertIn("\n</details>\n\n---\n<sub>", out)
+        self.assertTrue(out.endswith("</sub>\n"))
+
+    def test_assemble_banner_no_rest(self):
+        rows = ["| Field | Value |", "|-------|-------|",
+                "| Source path | `examples/x.md` (gitignored, local to author) |"]
+        out = project.assemble("doc1", "T", rows, project.BANNER, "only summary\n", "")
+        self.assertIn(project.BANNER + "\n\n### Executive Summary\n", out)
+        self.assertNotIn("<details>", out)
+
+    def test_size_check(self):
+        self.assertIsNone(project.check_size("x" * 10))
+        msg = project.check_size("x" * (project.MAX_BYTES + 1))
+        self.assertIn("exceeds GitHub's 65 KB cap", msg)
+
+
+class TestGolden(unittest.TestCase):
+    EX = os.path.join(HERE, "..", "examples")
+    CASES = [
+        ("investigation-report", "examples/investigation-report-input.md"),
+        ("incomplete-status", "examples/incomplete-status-input.md"),
+        ("no-summary", "examples/no-summary-input.md"),
+    ]
+
+    def test_golden(self):
+        for name, source in self.CASES:
+            with self.subTest(name=name):
+                inp = os.path.join(self.EX, f"{name}-input.md")
+                outp = os.path.join(self.EX, f"{name}-output.md")
+                body, _ = project.project(inp, source)
+                with open(outp, encoding="utf-8") as f:
+                    expected = f.read()
+                self.assertEqual(body, expected)
+
+
 if __name__ == "__main__":
     unittest.main()

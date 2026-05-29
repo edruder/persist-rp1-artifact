@@ -173,3 +173,81 @@ def marker_key(fm, source_path):
     """Idempotency key: rp1_doc_id when present, else path:<source_path>."""
     doc = fm.get("rp1_doc_id", "").strip()
     return doc if doc else f"path:{source_path}"
+
+
+FOOTER_RULE = "---"
+FOOTER_SUB = (
+    "<sub>\U0001F916 Posted by `persist-rp1-artifact`. Re-run the skill to update "
+    "this comment in place. Local artifact is gitignored and may be edited by "
+    "`rp1` agents.</sub>"
+)
+
+
+def assemble(key, title, table_rows, banner, summary_body, rest_body):
+    """Build the exact comment body. summary_body/rest_body end in one \\n (rest may be '')."""
+    lines = [f"<!-- rp1-artifact: {key} -->", f"## \U0001F4CB rp1 Artifact: {title}", ""]
+    lines += table_rows
+    lines.append("")
+    if banner:
+        lines.append(banner)
+        lines.append("")
+    lines.append("### Executive Summary")
+    lines.append("")
+    lines += summary_body.rstrip("\n").split("\n")
+    if rest_body:
+        lines.append("")
+        lines.append("<details>")
+        lines.append("<summary><strong>Full artifact</strong> (click to expand)</summary>")
+        lines.append("")
+        lines += rest_body.rstrip("\n").split("\n")
+        lines.append("")
+        lines.append("</details>")
+    lines.append("")
+    lines.append(FOOTER_RULE)
+    lines.append(FOOTER_SUB)
+    return "\n".join(lines) + "\n"
+
+
+def check_size(body):
+    """Return an error message if body exceeds GitHub's cap, else None."""
+    n = len(body.encode("utf-8"))
+    if n > MAX_BYTES:
+        return f"Comment body exceeds GitHub's 65 KB cap ({n} bytes). Multi-comment chunking is not yet supported."
+    return None
+
+
+def project(artifact_path, source_path):
+    """Pure projection. Returns (comment_body, warnings)."""
+    with open(artifact_path, encoding="utf-8") as f:
+        text = f.read()
+    fm, body = split_frontmatter(text)
+    title = derive_title(fm, body, artifact_path)
+    body1 = strip_leading_h1(body)
+    (summary_body, rest_body), warn = extract_summary(body1)
+    warnings = [warn] if warn else []
+    rows = build_table_rows(fm, source_path)
+    banner = build_banner(fm)
+    key = marker_key(fm, source_path)
+    out = assemble(key, title, rows, banner, summary_body, rest_body)
+    return out, warnings
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description="Project an rp1 artifact into a PR/issue comment body.")
+    ap.add_argument("artifact_path")
+    ap.add_argument("--source-path", required=True,
+                    help="repo-relative path to display in the Source path row and path: key")
+    args = ap.parse_args(argv)
+    body, warnings = project(args.artifact_path, args.source_path)
+    for w in warnings:
+        print(w, file=sys.stderr)
+    err = check_size(body)
+    if err:
+        print(err, file=sys.stderr)
+        return 1
+    sys.stdout.write(body)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
