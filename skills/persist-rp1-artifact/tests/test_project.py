@@ -214,6 +214,10 @@ class TestGolden(unittest.TestCase):
         ("investigation-report", "examples/investigation-report-input.md"),
         ("incomplete-status", "examples/incomplete-status-input.md"),
         ("no-summary", "examples/no-summary-input.md"),
+        ("no-doc-id", "examples/no-doc-id-input.md"),
+        ("routing-only", "examples/routing-only-input.md"),
+        ("no-frontmatter", "examples/no-frontmatter-input.md"),
+        ("lead-split", "examples/lead-split-input.md"),
     ]
 
     def test_golden(self):

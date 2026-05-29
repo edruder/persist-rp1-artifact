@@ -10,4 +10,9 @@ date: 2026-05-19
 
 ## Executive Summary
 
-This artifact intentionally omits `rp1_doc_id` to prove the skill refuses to publish.
+This artifact has rich fields but no `rp1_doc_id`, so the comment is keyed off the
+repo-relative path instead. The skill still publishes it.
+
+## Details
+
+Body content that lands in the collapsible section.
