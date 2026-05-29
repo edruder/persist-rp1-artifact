@@ -4,11 +4,11 @@
   "version": "0.3.1",
   "author": {
     "name": "Ed Ruder",
-    "email": "ed@ruders.org"
+    "email": "ed@useanvil.com"
   },
   "license": "MIT",
-  "homepage": "https://github.com/edruder/persist-rp1-artifact",
-  "repository": "https://github.com/edruder/persist-rp1-artifact",
+  "homepage": "https://github.com/anvilco/persist-rp1-artifact",
+  "repository": "https://github.com/anvilco/persist-rp1-artifact",
   "keywords": [
     "rp1",
     "pr-comment",

@@ -4,7 +4,7 @@
   "description": "Single-plugin marketplace for the persist-rp1-artifact Claude Code skill.",
   "owner": {
     "name": "Ed Ruder",
-    "email": "ed@ruders.org"
+    "email": "ed@useanvil.com"
   },
   "plugins": [
     {
@@ -13,12 +13,12 @@
       "description": "Publish rp1 artifacts (investigation reports, design docs, audits) as idempotent PR comments without committing the files to the repo.",
       "author": {
         "name": "Ed Ruder",
-        "email": "ed@ruders.org"
+        "email": "ed@useanvil.com"
       },
       "category": "development",
       "source": "./",
       "skills": ["./skills/persist-rp1-artifact"],
-      "homepage": "https://github.com/edruder/persist-rp1-artifact"
+      "homepage": "https://github.com/anvilco/persist-rp1-artifact"
     }
   ]
 }

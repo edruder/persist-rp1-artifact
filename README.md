@@ -49,13 +49,13 @@ This skill earns its keep specifically when (a) you're using rp1, (b) an rp1 age
 Claude Code installs plugins from *marketplaces* — repos containing a `.claude-plugin/marketplace.json` manifest. This repo is its own single-plugin marketplace, so installation is a two-step command:
 
 ```
-/plugin marketplace add edruder/persist-rp1-artifact
+/plugin marketplace add anvilco/persist-rp1-artifact
 /plugin install persist-rp1-artifact
 ```
 
 The first command registers the repo as a known marketplace, keyed under the manifest's `name` (`persist-rp1-artifact`). The second installs the plugin from it. After installing, the `/persist-rp1-artifact` slash-command becomes available (may require a session restart).
 
-> **Note on naming.** Only the `add` command takes the GitHub path; subsequent `/plugin marketplace` operations (`update`, `remove`, etc.) take the **marketplace name** — `persist-rp1-artifact`, not `edruder/persist-rp1-artifact`. See the [Updating](#updating) section below.
+> **Note on naming.** Only the `add` command takes the GitHub path; subsequent `/plugin marketplace` operations (`update`, `remove`, etc.) take the **marketplace name** — `persist-rp1-artifact`, not `anvilco/persist-rp1-artifact`. See the [Updating](#updating) section below.
 
 ### Updating
 
