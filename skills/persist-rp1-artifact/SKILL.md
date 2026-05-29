@@ -76,7 +76,7 @@ This procedure is executed by the main agent using `Read`, `Bash` (for `gh`), an
 ```bash
 case "$(realpath "$path")" in
   */.rp1/work/*) ;;  # OK
-  *) echo "WARNING: $path is outside .rp1/work/. Idempotency requires rp1_doc_id frontmatter." >&2 ;;
+  *) echo "WARNING: $path is outside .rp1/work/. The path-based idempotency key still works; this is informational." >&2 ;;
 esac
 ```
 

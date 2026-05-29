@@ -1,6 +1,6 @@
 # persist-rp1-artifact
 
-A Claude Code skill that publishes [rp1](https://github.com/rp1-run/rp1) artifacts — investigation reports, design docs, audits, security analyses — as **idempotent GitHub PR comments**, so reviewers see the reasoning behind a change without the intermediate analysis files cluttering the repo.
+A Claude Code skill that publishes [rp1](https://github.com/rp1-run/rp1) artifacts — investigation reports, design docs, audits, security analyses — as **idempotent GitHub PR or issue comments**, so reviewers see the reasoning behind a change without the intermediate analysis files cluttering the repo.
 
 ## The problem this solves
 
@@ -11,11 +11,11 @@ Two bad alternatives the team had been living with:
 1. **Commit the artifact to the repo.** Bloats `git log` and file tree with analysis that has no long-term home. ([Real example](https://github.com/anvilco/pdf-service/pull/564) — a 397-line investigation report was force-added to a 3-line PR.)
 2. **Discard the artifact.** Reviewers lose the reasoning; future maintainers can't reconstruct the "why."
 
-`persist-rp1-artifact` is the third option: publish the artifact as a **PR comment** that lives where reviewers actually look, while the original file stays gitignored under `.rp1/work/`. Re-running the skill on an edited artifact updates the same comment in place (no spam, GitHub's "edited" badge surfaces the change).
+`persist-rp1-artifact` is the third option: publish the artifact as a **PR or issue comment** that lives where reviewers actually look, while the original file stays gitignored under `.rp1/work/`. Re-running the skill on an edited artifact updates the same comment in place (no spam, GitHub's "edited" badge surfaces the change).
 
 ## What it looks like
 
-![Rendered PR comment example](screenshots/comment-demo.png)
+![Rendered PR or issue comment example](screenshots/comment-demo.png)
 
 The skill projects an rp1 artifact into a structured PR or issue comment:
 
