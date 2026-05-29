@@ -158,9 +158,11 @@ GitHub strips HTML comments from the rendered view, so the marker is invisible t
     └── persist-rp1-artifact/
         ├── SKILL.md             ← the procedure the agent follows
         ├── scripts/
+        │   ├── publish.py       ← entrypoint: runs the whole procedure in one process
         │   ├── project.py       ← pure projection: artifact → comment body (stdout)
         │   └── parse_target.py  ← pure: target string → {owner,repo,number,kind}
         ├── tests/
+        │   ├── test_publish.py  ← orchestration-seam unit tests (gh never called)
         │   ├── test_project.py  ← unit + byte-exact golden tests
         │   └── test_parse_target.py
         ├── references/
