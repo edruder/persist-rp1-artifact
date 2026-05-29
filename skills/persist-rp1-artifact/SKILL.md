@@ -96,7 +96,7 @@ if [ -z "$target" ]; then
   [ -z "$number" ] && { echo "No open PR for current branch. Push and open a PR, or pass an explicit PR/issue number or URL." >&2; exit 1; }
   owner="${repo_full%/*}"; repo="${repo_full#*/}"; kind="pr"
 else
-  parsed="$(python3 "$SKILL_DIR/scripts/parse_target.py" "$target" --current-repo "$repo_full")" \
+  parsed="$(python3 "$SKILL_DIR/scripts/parse_target.py" "$target" --current-repo "$repo_full" 2>&1)" \
     || { echo "$parsed" >&2; exit 1; }
   owner="$(echo "$parsed" | python3 -c 'import json,sys;print(json.load(sys.stdin)["owner"])')"
   repo="$(echo "$parsed"  | python3 -c 'import json,sys;print(json.load(sys.stdin)["repo"])')"
@@ -252,10 +252,15 @@ Action:   would {action} (matched comment: {matched_url})
 
 Stdout receives only the projected body (so `--dry-run | diff expected.md -` works); stderr receives the diagnostic header.
 
+**Write the body to a temp file** (used by whichever of POST/PATCH runs). `printf '%s\n'` restores the single trailing newline that `$(...)` strips from `body_out`, so the posted bytes match project.py's output and the golden fixtures:
+
+```bash
+printf '%s\n' "$body_out" > /tmp/persist-rp1-artifact-body.md
+```
+
 **Real run — POST:**
 
 ```bash
-printf '%s' "$body_out" > /tmp/persist-rp1-artifact-body.md
 gh api -X POST "repos/$repo_full/issues/$number/comments" \
   -F body=@/tmp/persist-rp1-artifact-body.md \
   --jq '.html_url'
@@ -288,4 +293,4 @@ Where `<Posted|Updated>` matches the action, `<PR|issue>` matches `kind`, and `<
 
 ## Spec
 
-See `DESIGN.md` for the spec this skill implements.
+See [`docs/superpowers/specs/2026-05-28-persist-rp1-artifact-generality-design.md`](../../docs/superpowers/specs/2026-05-28-persist-rp1-artifact-generality-design.md) for the spec this skill implements. (`DESIGN.md` is the superseded v1 design.)

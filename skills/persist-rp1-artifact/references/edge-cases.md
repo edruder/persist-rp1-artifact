@@ -65,7 +65,9 @@ A single flag that loosens three guard rails at once:
 
 ## --dry-run flag effects
 
-Runs procedure steps 1–5 (resolve PR, read, parse, project, lookup existing). Stops before any `POST`/`PATCH`. Prints to stdout:
+Runs procedure steps 1–4 (resolve target, read + parse + project, lookup existing). Stops before any `POST`/`PATCH`, then exits 0.
+
+**Stdout** receives only the projected comment body (so `--dry-run | diff expected.md -` works). **Stderr** receives the diagnostic header below; the `Target:` line uses the PR format (with base/head) when `kind` is `pr`, and the issue format otherwise:
 
 ```
 === persist-rp1-artifact (dry run) ===
@@ -80,8 +82,6 @@ Action:   would <POST|PATCH> (matched comment: <url-or-none>)
 <full body>
 --- end body ---
 ```
-
-Then exit 0. **Stdout is the projected body for piping/diffing.** Diagnostic line ("Action:" etc.) goes to stderr so `--dry-run | diff expected.md -` works.
 
 ## Path-based idempotency key
 
